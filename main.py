@@ -1,35 +1,28 @@
 from blockchain import Blockchain
 from transaction import Transaction
+from wallet import Wallet
 
 
 def main():
-    # Cria a blockchain
     blockchain = Blockchain()
 
-    # Cria algumas transações
-    blockchain.create_transaction(Transaction("Alice", "Bob", 50))
-    blockchain.create_transaction(Transaction("Bob", "Charlie", 30))
+    # Adiciona alguns participantes
+    # Alice tem uma participação inicial
+    blockchain.stake_holders["Alice"] = 100
+    blockchain.stake_holders["Bob"] = 50
 
-    # Minera as transações
-    print("Minerando transações...")
-    blockchain.mine_pending_transactions("Minerador_1")
+    # Cria e adiciona uma transação
+    transaction = Transaction(
+        sender="Alice", recipient="Bob", amount=10, sender_public_key=None)
+    blockchain.create_transaction(transaction)
 
-    # Mostra o saldo do minerador
-    print(f"Saldo do minerador: {blockchain.pending_transactions[0].recipient} recebeu {
-          blockchain.pending_transactions[0].amount}")
-
-    # Adiciona mais transações
-    blockchain.create_transaction(Transaction("Charlie", "Alice", 20))
-    blockchain.create_transaction(Transaction("Alice", "Bob", 10))
-
-    # Minera as novas transações
-    print("Minerando transações...")
-    blockchain.mine_pending_transactions("Minerador_2")
+    # Realiza a mineração (PoS)
+    blockchain.mine_pending_transactions_pos()
 
     # Exibe os blocos na blockchain
     for block in blockchain.chain:
-        print(f"Bloco #{block.index} - Hash: {block.hash} - Transações: {
-              [tx.__dict__ for tx in block.transactions]}")
+        print(f"Bloco #{
+              block.index} - Transações: {[tx.__dict__ for tx in block.transactions]}")
 
 
 if __name__ == "__main__":
