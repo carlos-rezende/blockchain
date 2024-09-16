@@ -1,5 +1,8 @@
+import json
 import random
 import time
+
+import requests
 from block import Block
 from transaction import Transaction
 from cryptography.hazmat.primitives import hashes
@@ -154,3 +157,69 @@ class Blockchain:
 
     def create_block_from_data(self, data):
         return Block(data['index'], data['previous_hash'], data['transactions'], data['timestamp'])
+
+    def save_to_file(self, filename='blockchain.json'):
+        with open(filename, 'w') as file:
+            chain_data = [block.to_dict() for block in self.chain]
+            json.dump(chain_data, file)
+
+    def load_from_file(self, filename='blockchain.json'):
+        try:
+            with open(filename, 'r') as file:
+                chain_data = json.load(file)
+                self.chain = [Block.from_dict(block_data)
+                              for block_data in chain_data]
+        except (IOError, ValueError):
+            print(
+                "Erro ao carregar a blockchain do arquivo. Iniciando uma nova blockchain.")
+            self.chain = [self.create_genesis_block()]
+
+    def resolve_conflicts(self, peers):
+        longest_chain = None
+        max_length = len(self.chain)
+
+        for peer in peers:
+            try:
+                response = requests.get(f'{peer}/chain')
+                if response.status_code == 200:
+                    peer_chain = response.json()
+                    length = len(peer_chain)
+                    print(f"Recebido peer chain de comprimento: {length}")
+
+                    # Aceita a cadeia do peer se for mais longa ou do mesmo comprimento, mas válida
+                    if (length > max_length or (length == max_length and longest_chain is None)) and self.is_valid_chain(peer_chain):
+                        print(
+                            "Encontrada uma cadeia mais longa ou válida de mesmo comprimento.")
+                        max_length = length
+                        longest_chain = peer_chain
+            except requests.exceptions.RequestException as e:
+                print(f"Erro ao conectar ao peer {peer}: {e}")
+                continue
+
+        # Substitui a cadeia local se encontrar uma cadeia mais longa ou válida
+        if longest_chain:
+            print("Substituindo a cadeia local com a nova cadeia válida.")
+            self.chain = [Block.from_dict(block_data)
+                          for block_data in longest_chain]
+            return True
+        print("Nenhuma cadeia mais longa ou válida encontrada.")
+        return False
+
+    def is_valid_chain(self, chain_data):
+        temp_chain = [Block.from_dict(block_data) for block_data in chain_data]
+        for i in range(1, len(temp_chain)):
+            current_block = temp_chain[i]
+            previous_block = temp_chain[i - 1]
+
+            # Verifica se o hash do bloco atual está correto
+            if current_block.hash != current_block.calculate_hash():
+                print(f"Hash do bloco {current_block.index} inválido.")
+                return False
+
+            # Verifica se o hash do bloco anterior está correto
+            if current_block.previous_hash != previous_block.hash:
+                print(f"Hash do bloco anterior do bloco {
+                      current_block.index} não corresponde.")
+                return False
+
+        return True

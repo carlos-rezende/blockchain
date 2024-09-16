@@ -42,6 +42,14 @@ def sync_chain():
     return "Blockchain sincronizada", 200
 
 
+@app.route('/resolve', methods=['GET'])
+def resolve_conflicts():
+    replaced = blockchain.resolve_conflicts(peers)
+    if replaced:
+        return jsonify({"message": "Chain replaced with the longest chain"}), 200
+    return jsonify({"message": "Local chain is the longest"}), 200
+
+
 @socketio.on('block_added')
 def handle_block_added(data):
     block = blockchain.create_block_from_data(data)
