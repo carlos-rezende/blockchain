@@ -1,0 +1,31 @@
+# Ambientes Virtuais
+venv/
+env/
+.venv/
+
+# Arquivos de Cache Python
+__pycache__/
+*.py[cod]
+
+# Logs e arquivos de saída
+*.log
+*.out
+
+# Configurações de Editor/IDE
+.vscode/
+.idea/
+*.swp
+
+# Arquivos do Sistema Operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos de segurança/sensíveis (chaves e credenciais)
+*.pem
+*.key
+*.crt
+*.env
+
+# Outros arquivos específicos do projeto
+blockchain.db
+*.sqlite
