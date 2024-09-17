@@ -4,13 +4,13 @@ from src.transaction import Transaction  # Importa a classe Transaction
 
 
 class Block:
-    def __init__(self, index, previous_hash, transactions, timestamp=None):
+    def __init__(self, index, previous_hash, transactions, timestamp, nonce=0, hash=''):
         self.index = index
         self.previous_hash = previous_hash
-        self.transactions = transactions  # Lista de transações
-        self.timestamp = timestamp or time.time()
-        self.nonce = 0
-        self.hash = self.calculate_hash()
+        self.transactions = transactions
+        self.timestamp = timestamp
+        self.nonce = nonce
+        self.hash = hash
 
     def calculate_hash(self):
         # Serializa as transações como strings para incluí-las no hash
