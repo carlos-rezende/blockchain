@@ -27,6 +27,8 @@ class Blockchain:
         self.reputation = {}  # Armazena a reputação dos nós
         self.connection = sqlite3.connect('blockchain.db')
         self.create_tables()
+        # Deve ser armazenada em um local seguro
+        self.encryption_password = b"super_secret_password"
 
     def create_tables(self):
         with self.connection:
@@ -46,11 +48,26 @@ class Blockchain:
                     sender TEXT,
                     recipient TEXT,
                     amount REAL,
-                    signature TEXT,
-                    sender_public_key TEXT,
+                    encrypted_signature BLOB,
+                    encrypted_sender_public_key BLOB,
+                    nonce BLOB,
+                    tag BLOB,
                     FOREIGN KEY(block_index) REFERENCES blocks(block_index)
                 )
             ''')
+
+            try:
+                self.connection.execute(
+                    'ALTER TABLE transactions ADD COLUMN encrypted_signature BLOB')
+                self.connection.execute(
+                    'ALTER TABLE transactions ADD COLUMN encrypted_sender_public_key BLOB')
+                self.connection.execute(
+                    'ALTER TABLE transactions ADD COLUMN nonce BLOB')
+                self.connection.execute(
+                    'ALTER TABLE transactions ADD COLUMN tag BLOB')
+            except sqlite3.OperationalError:
+                # Se as colunas já existirem, ignore o erro
+                pass
 
     def create_genesis_block(self):
         return Block(0, "0", [], time.time())
@@ -63,6 +80,11 @@ class Blockchain:
         if transaction.sender is None:
             self.pending_transactions.append(transaction)
             return True
+
+        # Verifica se a chave pública está no formato correto (PEM e bytes)
+        if isinstance(transaction.sender_public_key, str):
+            transaction.sender_public_key = transaction.sender_public_key.encode(
+                'utf-8')
 
         # Verifica se o valor da transação é maior que zero
         if transaction.amount <= 0:
@@ -94,43 +116,41 @@ class Blockchain:
     def mine_pending_transactions(self, mining_reward_address):
         # Cria um novo bloco contendo as transações pendentes
         block = Block(len(self.chain), self.get_latest_block().hash,
-                      self.pending_transactions)
+                      self.pending_transactions, time.time())
         block.mine_block(self.difficulty)
 
-      # Processa as transações e atualiza os saldos
+        # Processa as transações e atualiza os saldos
         for transaction in self.pending_transactions:
-            if not self.verify_transaction(transaction):
-                print(f"Transação inválida detectada e ignorada: {
-                      transaction}")
-            continue
-
-        if transaction.sender:  # Exclui transações de criação de saldo inicial
-            sender_balance = self.get_balance(transaction.sender)
-            if sender_balance >= transaction.amount:
-                # Deduz o valor do remetente
-                self.stake_holders[transaction.sender] = sender_balance - \
-                    transaction.amount
-                # Adiciona o valor ao destinatário
+            if transaction.sender:  # Exclui transações de criação de saldo inicial
+                sender_balance = self.get_balance(transaction.sender)
+                if sender_balance >= transaction.amount:
+                    # Deduz o valor do remetente
+                    self.stake_holders[transaction.sender] = sender_balance - \
+                        transaction.amount
+                    # Adiciona o valor ao destinatário
+                    self.stake_holders[transaction.recipient] = self.get_balance(
+                        transaction.recipient) + transaction.amount
+                else:
+                    print(f"Saldo insuficiente para a transação de {
+                          transaction.sender}.")
+            else:
+                # Transação de criação de saldo (genesis)
                 self.stake_holders[transaction.recipient] = self.get_balance(
                     transaction.recipient) + transaction.amount
-            else:
-                print(f"Saldo insuficiente para a transação de {
-                      transaction.sender}.")
-        else:
-            # Transação de criação de saldo (gênesis)
-            self.stake_holders[transaction.recipient] = self.get_balance(
-                transaction.recipient) + transaction.amount
 
-            # Adiciona o bloco minerado à cadeia
-            self.chain.append(block)
+        # Adiciona o bloco minerado à cadeia
+        self.chain.append(block)
 
-            # Recompensa o minerador
-            self.stake_holders[mining_reward_address] = self.get_balance(
-                mining_reward_address) + self.mining_reward
+        # Salva o bloco no banco de dados
+        self.save_block(block)
 
-            # Reseta as transações pendentes para incluir apenas a transação de recompensa ao minerador
-            self.pending_transactions = [Transaction(
-                None, mining_reward_address, self.mining_reward)]
+        # Recompensa o minerador
+        self.stake_holders[mining_reward_address] = self.get_balance(
+            mining_reward_address) + self.mining_reward
+
+        # Reseta as transações pendentes para incluir apenas a transação de recompensa ao minerador
+        self.pending_transactions = [Transaction(
+            None, mining_reward_address, self.mining_reward)]
 
     def is_chain_valid(self):
         for i in range(1, len(self.chain)):
@@ -166,8 +186,12 @@ class Blockchain:
         if not transaction.signature or not transaction.sender_public_key:
             print("Transação inválida: Assinatura ou chave pública ausente.")
             return False
-
         try:
+            # Certifica-se de que a chave pública está no formato PEM e como bytes
+            if isinstance(transaction.sender_public_key, str):
+                transaction.sender_public_key = transaction.sender_public_key.encode(
+                    'utf-8')
+
             # Carrega a chave pública do remetente
             public_key = serialization.load_pem_public_key(
                 transaction.sender_public_key)
@@ -183,8 +207,9 @@ class Blockchain:
                 hashes.SHA256()
             )
             return True
-        except InvalidSignature:
-            print("Transação inválida: Assinatura inválida.")
+        except (InvalidSignature, ValueError) as e:
+            print(
+                f"Transação inválida: Assinatura inválida ou chave pública malformada. Erro: {e}")
             return False
         except Exception as e:
             print(f"Erro na verificação da transação: {e}")
@@ -218,11 +243,14 @@ class Blockchain:
             self.reputation[node] = max(1, self.reputation[node] - 1)
 
     def mine_pending_transactions(self, mining_reward_address):
-        # Cria um novo bloco contendo as transações pendentes
-        block = Block(len(self.chain), self.get_latest_block().hash,
-                      self.pending_transactions)
+      # Cria um novo bloco contendo as transações pendentes
+        block = Block(
+            len(self.chain),
+            self.get_latest_block().hash,
+            self.pending_transactions,
+            time.time()  # Adiciona o timestamp
+        )
         block.mine_block(self.difficulty)
-
         # Processa as transações e atualiza os saldos
         for transaction in self.pending_transactions:
             if transaction.sender:  # Exclui transações de criação de saldo inicial
@@ -241,14 +269,11 @@ class Blockchain:
                 # Transação de criação de saldo (genesis)
                 self.stake_holders[transaction.recipient] = self.get_balance(
                     transaction.recipient) + transaction.amount
-
         # Adiciona o bloco minerado à cadeia
         self.chain.append(block)
-
         # Recompensa o minerador
         self.stake_holders[mining_reward_address] = self.get_balance(
             mining_reward_address) + self.mining_reward
-
         # Reseta as transações pendentes para incluir apenas a transação de recompensa ao minerador
         self.pending_transactions = [Transaction(
             None, mining_reward_address, self.mining_reward)]
@@ -342,13 +367,18 @@ class Blockchain:
             iterations=100000,
         )
         key = kdf.derive(password)
-        # Criptografa os dados usando AES
-        cipher = Cipher(algorithms.AES(key), modes.GCM(os.urandom(12)))
+
+        # Gera um nonce para GCM
+        nonce = os.urandom(12)
+
+        # Criptografa os dados usando AES-GCM
+        cipher = Cipher(algorithms.AES(key), modes.GCM(nonce))
         encryptor = cipher.encryptor()
         ciphertext = encryptor.update(data) + encryptor.finalize()
-        return salt, cipher.algorithm, encryptor.tag, ciphertext
 
-    def decrypt_data(self, salt, algorithm, tag, ciphertext, password):
+        return salt, nonce, encryptor.tag, ciphertext
+
+    def decrypt_data(self, salt, nonce, tag, ciphertext, password):
         # Deriva a chave usando o mesmo KDF
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -357,29 +387,87 @@ class Blockchain:
             iterations=100000,
         )
         key = kdf.derive(password)
-        cipher = Cipher(algorithm, modes.GCM(tag))
+
+        # Cria o decifrador com AES-GCM e o nonce
+        cipher = Cipher(algorithms.AES(key), modes.GCM(nonce, tag))
         decryptor = cipher.decryptor()
         return decryptor.update(ciphertext) + decryptor.finalize()
 
     def save_block(self, block):
         with self.connection:
-            self.connection.execute('''
-            INSERT INTO blocks (block_index, previous_hash, timestamp, nonce, hash)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (block.index, block.previous_hash, block.timestamp, block.nonce, block.hash))
-
-            for transaction in block.transactions:
+            try:
+                # Salva o bloco no banco de dados
                 self.connection.execute('''
-                    INSERT INTO transactions (block_index, sender, recipient, amount, signature, sender_public_key)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (block.index, transaction.sender, transaction.recipient, transaction.amount, transaction.signature, transaction.sender_public_key))
+                INSERT INTO blocks (block_index, previous_hash, timestamp, nonce, hash)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (block.index, block.previous_hash, block.timestamp, block.nonce, block.hash))
+
+                for transaction in block.transactions:
+                    # Certifica-se de que a chave pública e assinatura são strings
+                    sender_public_key = transaction.sender_public_key
+                    signature = transaction.signature
+
+                    # Verifica se a chave pública e a assinatura não são None
+                    if sender_public_key and isinstance(sender_public_key, bytes):
+                        sender_public_key = sender_public_key.decode('utf-8')
+
+                    if signature and isinstance(signature, bytes):
+                        signature = signature.decode('utf-8')
+
+                    # Se a assinatura ou chave pública for None, define um valor padrão
+                    if not sender_public_key:
+                        sender_public_key = 'none'
+                    if not signature:
+                        signature = 'none'
+
+                    # Criptografa a assinatura e a chave pública
+                    _, nonce, tag, encrypted_signature = self.encrypt_data(
+                        signature.encode('utf-8'), self.encryption_password)
+                    _, _, _, encrypted_sender_public_key = self.encrypt_data(
+                        sender_public_key.encode('utf-8'), self.encryption_password)
+
+                    # Salva a transação no banco de dados
+                    self.connection.execute('''
+                    INSERT INTO transactions (block_index, sender, recipient, amount, encrypted_signature, encrypted_sender_public_key, nonce, tag)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (block.index, transaction.sender, transaction.recipient, transaction.amount, encrypted_signature, encrypted_sender_public_key, nonce, tag))
+            except sqlite3.IntegrityError:
+                print(f"Bloco com índice {
+                      block.index} já existe. Pulando inserção.")
 
     def load_blocks(self):
         cursor = self.connection.cursor()
-        cursor.execute('SELECT * FROM blocks ORDER BY index')
+        cursor.execute('SELECT * FROM blocks ORDER BY block_index')
         blocks = []
         for row in cursor.fetchall():
-            blocks.append(Block(*row))
+            block_index, previous_hash, timestamp, nonce, hash_ = row
+            # Carrega as transações relacionadas a esse bloco
+            cursor.execute(
+                'SELECT sender, recipient, amount, encrypted_signature, encrypted_sender_public_key, nonce, tag FROM transactions WHERE block_index=?', (block_index,))
+            transactions = []
+            for tx_row in cursor.fetchall():
+                sender, recipient, amount, encrypted_signature, encrypted_sender_public_key, nonce, tag = tx_row
+
+                # Descriptografa os dados
+                try:
+                    signature = self.decrypt_data(
+                        nonce, nonce, tag, encrypted_signature, self.encryption_password).decode('utf-8')
+                    sender_public_key = self.decrypt_data(
+                        nonce, nonce, tag, encrypted_sender_public_key, self.encryption_password).decode('utf-8')
+
+                    transactions.append(Transaction(
+                        sender=sender,
+                        recipient=recipient,
+                        amount=amount,
+                        signature=signature,
+                        sender_public_key=sender_public_key
+                    ))
+                except Exception as e:
+                    print(f"Erro ao descriptografar dados da transação: {e}")
+                    continue
+
+            blocks.append(Block(block_index, previous_hash,
+                          transactions, timestamp, nonce, hash_))
         return blocks
 
     def sync_chain(self, nodes):

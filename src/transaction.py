@@ -82,3 +82,30 @@ class Transaction:
 
     def __repr__(self):
         return self.__str__()
+
+    def create_tables(self):
+        with self.connection:
+            self.connection.execute('''
+            CREATE TABLE IF NOT EXISTS blocks (
+                block_index INTEGER PRIMARY KEY,
+                previous_hash TEXT,
+                timestamp REAL,
+                nonce INTEGER,
+                hash TEXT
+            )
+        ''')
+            self.connection.execute('''
+            CREATE TABLE IF NOT EXISTS transactions (
+                transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_index INTEGER,
+                sender TEXT,
+                recipient TEXT,
+                amount REAL,
+                signature TEXT,
+                sender_public_key TEXT,
+                salt BLOB,
+                tag BLOB,
+                ciphertext BLOB,
+                FOREIGN KEY(block_index) REFERENCES blocks(block_index)
+            )
+        ''')
