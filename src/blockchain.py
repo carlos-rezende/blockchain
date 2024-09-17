@@ -32,42 +32,64 @@ class Blockchain:
 
     def create_tables(self):
         with self.connection:
+            # Cria a tabela de blocos se não existir
             self.connection.execute('''
-                CREATE TABLE IF NOT EXISTS blocks (
-                    block_index INTEGER PRIMARY KEY,
-                    previous_hash TEXT,
-                    timestamp REAL,
-                    nonce INTEGER,
-                    hash TEXT
-                )
-            ''')
-            self.connection.execute('''
-                CREATE TABLE IF NOT EXISTS transactions (
-                    transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    block_index INTEGER,
-                    sender TEXT,
-                    recipient TEXT,
-                    amount REAL,
-                    encrypted_signature BLOB,
-                    encrypted_sender_public_key BLOB,
-                    nonce BLOB,
-                    tag BLOB,
-                    FOREIGN KEY(block_index) REFERENCES blocks(block_index)
-                )
-            ''')
+            CREATE TABLE IF NOT EXISTS blocks (
+                block_index INTEGER PRIMARY KEY,
+                previous_hash TEXT,
+                timestamp REAL,
+                nonce INTEGER,
+                hash TEXT
+            )
+        ''')
 
+            # Cria a tabela de transações se não existir
+            self.connection.execute('''
+            CREATE TABLE IF NOT EXISTS transactions (
+                transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_index INTEGER,
+                sender TEXT,
+                recipient TEXT,
+                amount REAL,
+                encrypted_signature BLOB,
+                encrypted_sender_public_key BLOB,
+                nonce BLOB,
+                tag BLOB,
+                salt BLOB,
+                FOREIGN KEY(block_index) REFERENCES blocks(block_index)
+            )
+        ''')
+
+            # Adiciona colunas ausentes
             try:
                 self.connection.execute(
                     'ALTER TABLE transactions ADD COLUMN encrypted_signature BLOB')
+            except sqlite3.OperationalError:
+                pass  # Coluna já existe, ignorar
+
+            try:
                 self.connection.execute(
                     'ALTER TABLE transactions ADD COLUMN encrypted_sender_public_key BLOB')
+            except sqlite3.OperationalError:
+                pass  # Coluna já existe, ignorar
+
+            try:
                 self.connection.execute(
                     'ALTER TABLE transactions ADD COLUMN nonce BLOB')
+            except sqlite3.OperationalError:
+                pass  # Coluna já existe, ignorar
+
+            try:
                 self.connection.execute(
                     'ALTER TABLE transactions ADD COLUMN tag BLOB')
             except sqlite3.OperationalError:
-                # Se as colunas já existirem, ignore o erro
-                pass
+                pass  # Coluna já existe, ignorar
+
+            try:
+                self.connection.execute(
+                    'ALTER TABLE transactions ADD COLUMN salt BLOB')
+            except sqlite3.OperationalError:
+                pass  # Coluna já existe, ignorar
 
     def create_genesis_block(self):
         return Block(0, "0", [], time.time())
@@ -243,7 +265,7 @@ class Blockchain:
             self.reputation[node] = max(1, self.reputation[node] - 1)
 
     def mine_pending_transactions(self, mining_reward_address):
-      # Cria um novo bloco contendo as transações pendentes
+        # Cria um novo bloco contendo as transações pendentes
         block = Block(
             len(self.chain),
             self.get_latest_block().hash,
@@ -397,6 +419,7 @@ class Blockchain:
         with self.connection:
             try:
                 # Salva o bloco no banco de dados
+                print(f"Salvando bloco {block.index} no banco de dados.")
                 self.connection.execute('''
                 INSERT INTO blocks (block_index, previous_hash, timestamp, nonce, hash)
                 VALUES (?, ?, ?, ?, ?)
@@ -407,30 +430,31 @@ class Blockchain:
                     sender_public_key = transaction.sender_public_key
                     signature = transaction.signature
 
-                    # Verifica se a chave pública e a assinatura não são None
                     if sender_public_key and isinstance(sender_public_key, bytes):
                         sender_public_key = sender_public_key.decode('utf-8')
 
                     if signature and isinstance(signature, bytes):
                         signature = signature.decode('utf-8')
 
-                    # Se a assinatura ou chave pública for None, define um valor padrão
-                    if not sender_public_key:
-                        sender_public_key = 'none'
-                    if not signature:
-                        signature = 'none'
+                    # Verifica se a assinatura e a chave pública estão presentes
+                    if signature and sender_public_key:
+                        try:
+                            salt, nonce, tag, encrypted_signature = self.encrypt_data(
+                                signature.encode('utf-8'), self.encryption_password)
+                            _, nonce_key, tag_key, encrypted_sender_public_key = self.encrypt_data(
+                                sender_public_key.encode('utf-8'), self.encryption_password)
 
-                    # Criptografa a assinatura e a chave pública
-                    _, nonce, tag, encrypted_signature = self.encrypt_data(
-                        signature.encode('utf-8'), self.encryption_password)
-                    _, _, _, encrypted_sender_public_key = self.encrypt_data(
-                        sender_public_key.encode('utf-8'), self.encryption_password)
-
-                    # Salva a transação no banco de dados
-                    self.connection.execute('''
-                    INSERT INTO transactions (block_index, sender, recipient, amount, encrypted_signature, encrypted_sender_public_key, nonce, tag)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (block.index, transaction.sender, transaction.recipient, transaction.amount, encrypted_signature, encrypted_sender_public_key, nonce, tag))
+                            # Insere a transação no banco de dados
+                            self.connection.execute('''
+                            INSERT INTO transactions (block_index, sender, recipient, amount, encrypted_signature, encrypted_sender_public_key, nonce, tag, salt)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (block.index, transaction.sender, transaction.recipient, transaction.amount, encrypted_signature, encrypted_sender_public_key, nonce, tag, salt))
+                        except Exception as e:
+                            print(f"Erro ao criptografar dados da transação no bloco {
+                                  block.index}: {e}")
+                    else:
+                        print(f"Dados ausentes para criptografar a transação no bloco {
+                              block.index}. Pulando essa transação.")
             except sqlite3.IntegrityError:
                 print(f"Bloco com índice {
                       block.index} já existe. Pulando inserção.")
@@ -443,31 +467,35 @@ class Blockchain:
             block_index, previous_hash, timestamp, nonce, hash_ = row
             # Carrega as transações relacionadas a esse bloco
             cursor.execute(
-                'SELECT sender, recipient, amount, encrypted_signature, encrypted_sender_public_key, nonce, tag FROM transactions WHERE block_index=?', (block_index,))
+                'SELECT sender, recipient, amount, encrypted_signature, encrypted_sender_public_key, nonce, tag, salt FROM transactions WHERE block_index=?', (block_index,))
             transactions = []
-            for tx_row in cursor.fetchall():
-                sender, recipient, amount, encrypted_signature, encrypted_sender_public_key, nonce, tag = tx_row
+        for tx_row in cursor.fetchall():
+            sender, recipient, amount, encrypted_signature, encrypted_sender_public_key, nonce, tag, salt = tx_row
+            # Descriptografa a assinatura e a chave pública
+            try:
+                signature = self.decrypt_data(
+                    salt, nonce, tag, encrypted_signature, self.encryption_password).decode('utf-8')
+                sender_public_key = self.decrypt_data(
+                    salt, nonce, tag, encrypted_sender_public_key, self.encryption_password).decode('utf-8')
+            except Exception as e:
+                print(f"Erro ao descriptografar dados da transação no bloco {
+                      block_index}: {e}")
+                # Se a descriptografia falhar, continue para a próxima transação
+                continue
+                # Adiciona a transação descriptografada à lista
+            transactions.append(Transaction(
+                sender=sender,
+                recipient=recipient,
+                amount=amount,
+                signature=signature,
+                sender_public_key=sender_public_key
+            ))
 
-                # Descriptografa os dados
-                try:
-                    signature = self.decrypt_data(
-                        nonce, nonce, tag, encrypted_signature, self.encryption_password).decode('utf-8')
-                    sender_public_key = self.decrypt_data(
-                        nonce, nonce, tag, encrypted_sender_public_key, self.encryption_password).decode('utf-8')
-
-                    transactions.append(Transaction(
-                        sender=sender,
-                        recipient=recipient,
-                        amount=amount,
-                        signature=signature,
-                        sender_public_key=sender_public_key
-                    ))
-                except Exception as e:
-                    print(f"Erro ao descriptografar dados da transação: {e}")
-                    continue
-
+            # Adiciona o bloco carregado à lista, mesmo que tenha algumas transações ausentes
+            print(f"Carregando bloco {block_index} do banco de dados.")
             blocks.append(Block(block_index, previous_hash,
                           transactions, timestamp, nonce, hash_))
+
         return blocks
 
     def sync_chain(self, nodes):
