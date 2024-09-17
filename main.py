@@ -1,6 +1,6 @@
-from blockchain import Blockchain
-from transaction import Transaction
-from wallet import Wallet
+from src.blockchain import Blockchain
+from src.transaction import Transaction
+from src.wallet import Wallet
 
 
 def main():
