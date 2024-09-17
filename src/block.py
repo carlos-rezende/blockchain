@@ -1,6 +1,6 @@
 import hashlib
 import time
-from transaction import Transaction  # Importa a classe Transaction
+from src.transaction import Transaction  # Importa a classe Transaction
 
 
 class Block:
@@ -50,3 +50,9 @@ class Block:
         block.nonce = block_data['nonce']
         block.hash = block_data['hash']
         return block
+
+    def __str__(self):
+        return f"Block(index={self.index}, hash={self.hash}, transactions={self.transactions})"
+
+    def __repr__(self):
+        return self.__str__()
