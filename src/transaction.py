@@ -15,9 +15,11 @@ class Transaction:
         self.sender_public_key = sender_public_key  # Chave pública do remetente
 
     def to_string(self):
+        # Serializa a transação em uma string para assinatura/verificação
         return f"{self.sender}{self.recipient}{self.amount}"
 
     def to_dict(self):
+        # Converte a transação em um dicionário para facilitar armazenamento e transmissão
         return {
             'sender': self.sender,
             'recipient': self.recipient,
@@ -28,6 +30,7 @@ class Transaction:
 
     @classmethod
     def from_dict(cls, tx_data):
+        # Cria uma instância de transação a partir de um dicionário
         signature = base64.b64decode(
             tx_data['signature']) if tx_data['signature'] else None
         return cls(
@@ -39,6 +42,7 @@ class Transaction:
         )
 
     def sign_transaction(self, private_key):
+        # Assina a transação com a chave privada do remetente
         transaction_data = self.to_string().encode('utf-8')
         self.signature = private_key.sign(
             transaction_data,
@@ -48,9 +52,10 @@ class Transaction:
             ),
             hashes.SHA256()
         )
-        return self.signature  # Certifique-se de retornar a assinatura
+        return self.signature  # Retorna a assinatura gerada
 
     def verify_signature(self):
+        # Verifica a assinatura da transação usando a chave pública
         if not self.sender_public_key:
             logging.error("Falha na verificação: Chave pública ausente.")
             return False
@@ -83,29 +88,29 @@ class Transaction:
     def __repr__(self):
         return self.__str__()
 
-    def create_tables(self):
-        with self.connection:
-            self.connection.execute('''
-            CREATE TABLE IF NOT EXISTS blocks (
-                block_index INTEGER PRIMARY KEY,
-                previous_hash TEXT,
-                timestamp REAL,
-                nonce INTEGER,
-                hash TEXT
-            )
-        ''')
-            self.connection.execute('''
-            CREATE TABLE IF NOT EXISTS transactions (
-                transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                block_index INTEGER,
-                sender TEXT,
-                recipient TEXT,
-                amount REAL,
-                signature TEXT,
-                sender_public_key TEXT,
-                salt BLOB,
-                tag BLOB,
-                ciphertext BLOB,
-                FOREIGN KEY(block_index) REFERENCES blocks(block_index)
-            )
-        ''')
+    # def create_tables(self):
+    #     with self.connection:
+    #         self.connection.execute('''
+    #         CREATE TABLE IF NOT EXISTS blocks (
+    #             block_index INTEGER PRIMARY KEY,
+    #             previous_hash TEXT,
+    #             timestamp REAL,
+    #             nonce INTEGER,
+    #             hash TEXT
+    #         )
+    #     ''')
+    #         self.connection.execute('''
+    #         CREATE TABLE IF NOT EXISTS transactions (
+    #             transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #             block_index INTEGER,
+    #             sender TEXT,
+    #             recipient TEXT,
+    #             amount REAL,
+    #             signature TEXT,
+    #             sender_public_key TEXT,
+    #             salt BLOB,
+    #             tag BLOB,
+    #             ciphertext BLOB,
+    #             FOREIGN KEY(block_index) REFERENCES blocks(block_index)
+    #         )
+    #     ''')
