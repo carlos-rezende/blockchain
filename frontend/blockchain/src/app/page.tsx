@@ -1,17 +1,19 @@
-import React, { useEffect, useState } from "react";
-import Blockchain from "./components/Blockchain";
-import Login from "./components/Login";
-import NovaTransacao from "./components/NovaTransacao";
-import Sincronizacao from "./components/Sincronizacao";
-import VerificarTransacao from "./components/VerificarTransacao";
-import Wallet from "./components/carteira";
-import MinerarBloco from "./components/mineracao";
+"use client";
+import Blockchain from "@/components/Blockchain";
+import Login from "@/components/Login";
+import Header from "@/components/header";
+import { useEffect, useState } from "react";
+import NovaTransacao from "../components/NovaTransacao";
+import Sincronizacao from "../components/Sincronizacao";
+import VerificarTransacao from "../components/VerificarTransacao";
+import Wallet from "../components/carteira";
+import MinerarBloco from "../components/mineracao";
 
 function App() {
   // Estado para rastrear se o usuário está autenticado
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   // Estado para verificar se a checagem da autenticação foi concluída
-  const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const [isAuthChecked, setIsAuthChecked] = useState<boolean>(false);
 
   useEffect(() => {
     // Verifica se existe um token armazenado no localStorage
@@ -43,8 +45,10 @@ function App() {
   if (!isAuthenticated) {
     return (
       <div className="App">
-        <h1>Seja Bem vindo a Blockchain</h1>
-        <Login onLoginSuccess={handleLoginSuccess} />
+        <h1 className="flex justify-center m-8">Seja Bem-vindo à Blockchain</h1>
+        <div className="flex justify-center">
+          <Login onLoginSuccess={handleLoginSuccess} />
+        </div>
       </div>
     );
   }
@@ -52,9 +56,8 @@ function App() {
   // Se estiver autenticado, renderiza os componentes da aplicação
   return (
     <div className="App">
-      <h1>Blockchain</h1>
-      <button onClick={handleLogout}>Sair</button> {/* Botão de logout */}
       <Blockchain />
+      <Header onLogout={handleLogout} /> {/* Passa a função handleLogout */}
       <NovaTransacao />
       <Sincronizacao />
       <VerificarTransacao />

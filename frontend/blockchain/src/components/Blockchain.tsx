@@ -1,15 +1,23 @@
 import axios from "axios";
 import React, { useState } from "react";
 
-function Blockchain() {
+// Define a estrutura esperada para os blocos
+interface Block {
+  index: number;
+  hash: string;
+}
+
+const Blockchain: React.FC = () => {
   // Estado para armazenar os blocos da blockchain
-  const [blocks, setBlocks] = useState([]);
-  const [error, setError] = useState(null); // Novo estado para armazenar erros
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [error, setError] = useState<string | null>(null); // Estado para armazenar erros
 
   // Função para buscar os blocos da API
   const fetchBlocks = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:5000/blockchain");
+      const response = await axios.get<Block[]>(
+        "http://127.0.0.1:5000/blockchain"
+      );
 
       // Agora deve receber diretamente um array
       console.log("Resposta da API:", response.data);
@@ -32,19 +40,24 @@ function Blockchain() {
   }
 
   return (
-    <div>
-      <h1>Blockchain</h1>
-      <button onClick={fetchBlocks}>Carregar Blocos</button>{" "}
+    <div className="pt-24 p-4 relative z-0">
+      <h1 className="text-center mb-4">Blockchain</h1>
+      <button
+        onClick={fetchBlocks}
+        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded"
+      >
+        Carregar Blocos
+      </button>
       {/* Botão para carregar os blocos */}
-      <ul>
+      <ul className="list-disc pl-5">
         {blocks.map((block, index) => (
-          <li key={index}>
+          <li key={index} className="mb-2">
             <strong>Bloco {block.index}</strong>: Hash - {block.hash}
           </li>
         ))}
       </ul>
     </div>
   );
-}
+};
 
 export default Blockchain;

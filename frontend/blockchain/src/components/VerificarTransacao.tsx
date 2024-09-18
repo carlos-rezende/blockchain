@@ -1,11 +1,19 @@
 import axios from "axios";
 import React, { useState } from "react";
 
-function VerificarTransacao() {
-  const [transactionId, setTransactionId] = useState("");
-  const [transactionDetails, setTransactionDetails] = useState(null);
-  const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(false);
+interface TransactionDetails {
+  sender: string;
+  recipient: string;
+  amount: number;
+  signature: string;
+}
+
+const VerificarTransacao: React.FC = () => {
+  const [transactionId, setTransactionId] = useState<string>("");
+  const [transactionDetails, setTransactionDetails] =
+    useState<TransactionDetails | null>(null);
+  const [status, setStatus] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
   const verificarTransacao = async () => {
     if (!transactionId) {
@@ -61,6 +69,6 @@ function VerificarTransacao() {
       )}
     </div>
   );
-}
+};
 
 export default VerificarTransacao;

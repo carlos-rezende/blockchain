@@ -2,12 +2,12 @@
 import axios from "axios";
 import React, { useState } from "react";
 
-function NovaTransacao() {
-  const [sender, setSender] = useState("");
-  const [recipient, setRecipient] = useState("");
-  const [amount, setAmount] = useState(0);
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+const NovaTransacao: React.FC = () => {
+  const [sender, setSender] = useState<string>("");
+  const [recipient, setRecipient] = useState<string>("");
+  const [amount, setAmount] = useState<number>(0);
+  const [message, setMessage] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
   const handleCreateTransaction = async () => {
     // Validações de entrada
@@ -23,7 +23,7 @@ function NovaTransacao() {
       await axios.post("http://127.0.0.1:5000/transaction", {
         sender,
         recipient,
-        amount: parseFloat(amount), // Converte o valor para float
+        amount: parseFloat(amount.toString()), // Converte o valor para float
       });
       setMessage("Transação criada com sucesso!");
       setSender("");
@@ -57,7 +57,7 @@ function NovaTransacao() {
         type="number"
         placeholder="Valor"
         value={amount}
-        onChange={(e) => setAmount(e.target.value)}
+        onChange={(e) => setAmount(parseFloat(e.target.value))}
         min="0"
         step="0.01"
       />
@@ -66,6 +66,6 @@ function NovaTransacao() {
       </button>
     </div>
   );
-}
+};
 
 export default NovaTransacao;
