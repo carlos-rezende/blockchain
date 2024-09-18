@@ -498,6 +498,13 @@ class Blockchain:
 
         return blocks
 
+    def find_transaction_by_id(self, transaction_id):
+        for block in self.chain:
+            for transaction in block.transactions:
+                if transaction.id == transaction_id:
+                    return transaction
+        return None
+
     def sync_chain(self, nodes):
         for node in nodes:
             try:
