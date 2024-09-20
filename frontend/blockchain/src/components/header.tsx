@@ -1,3 +1,5 @@
+"use client";
+import Link from "next/link";
 import React from "react";
 
 interface HeaderProps {
@@ -10,21 +12,61 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
       <div className="container flex justify-between h-16 mx-auto">
         <a
           rel="noopener noreferrer"
-          href="#"
+          href="/"
           aria-label="Back to homepage"
           className="flex items-center p-2"
-        ></a>
+        >
+          <span className="text-xl font-bold">Blockchain</span>
+        </a>
         <ul className="items-stretch hidden space-x-3 lg:flex">
           <li className="flex">
-            <a
-              rel="noopener noreferrer"
-              href="#"
-              className="flex items-center px-4 -mb-1 border-b-2 dark:border-violet-600"
+            <Link
+              href="/blockchain"
+              className="flex items-center px-4 -mb-1 border-b-2 border-transparent hover:border-violet-600"
             >
-              Link
-            </a>
+              Blockchain
+            </Link>
           </li>
-          {/* Outros Links */}
+          <li className="flex">
+            <Link
+              href="/NovaTransacao"
+              className="flex items-center px-4 -mb-1 border-b-2 border-transparent hover:border-violet-600"
+            >
+              Nova Transação
+            </Link>
+          </li>
+          <li className="flex">
+            <Link
+              href="/Sincronizacao"
+              className="flex items-center px-4 -mb-1 border-b-2 border-transparent hover:border-violet-600"
+            >
+              Sincronização
+            </Link>
+          </li>
+          <li className="flex">
+            <Link
+              href="/VerificarTransacao"
+              className="flex items-center px-4 -mb-1 border-b-2 border-transparent hover:border-violet-600"
+            >
+              Verificar Transação
+            </Link>
+          </li>
+          <li className="flex">
+            <Link
+              href="/mineracao"
+              className="flex items-center px-4 -mb-1 border-b-2 border-transparent hover:border-violet-600"
+            >
+              Minerar Bloco
+            </Link>
+          </li>
+          <li className="flex">
+            <Link
+              href="/carteira"
+              className="flex items-center px-4 -mb-1 border-b-2 border-transparent hover:border-violet-600"
+            >
+              Carteira
+            </Link>
+          </li>
         </ul>
         <div className="items-center flex-shrink-0 hidden lg:flex">
           <button
@@ -34,7 +76,6 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
             Sair
           </button>
         </div>
-        <button className="p-4 lg:hidden"></button>
       </div>
     </header>
   );
