@@ -19,7 +19,7 @@ CORS(app)  # Allows cross-origin requests
 users = {
     "user1": "password1",
     "user2": "password2",
-    "admin@admin": "admin"
+    "admin@admin": "admin1234"
 }
 
 

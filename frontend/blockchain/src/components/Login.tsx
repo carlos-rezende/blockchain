@@ -11,12 +11,23 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
+  // Função para processar o login
   const handleLogin = async () => {
     if (!email || !password) {
       setError("Por favor, preencha todos os campos.");
       return;
     }
 
+    // Verifica se as credenciais são do administrador
+    if (email === "admin@admin" && password === "admin1234") {
+      // Login master bem-sucedido
+      localStorage.setItem("token", "admin-token"); // Você pode usar um token fictício
+      setError(null);
+      onLoginSuccess(); // Chama a função de sucesso para redirecionar
+      return;
+    }
+
+    // Processa login normal com a API
     try {
       setLoading(true);
       const response = await axios.post("/login", {
@@ -28,8 +39,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       localStorage.setItem("token", token);
       setError(null);
       onLoginSuccess(); // Chama a função de sucesso para redirecionar
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
+      // Exibe detalhes do erro no console para depuração
+      console.error("Erro ao fazer login:", err);
       setError("Erro ao fazer login. Verifique suas credenciais.");
     } finally {
       setLoading(false);
@@ -37,53 +49,59 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="flex flex-col max-w-md p-6 rounded-md sm:p-10 dark:bg-gray-50 dark:text-gray-800">
-      <div className="mb-8 text-center">
-        <h1 className="my-3 text-4xl font-bold">Login</h1>
-        <form
-          noValidate
-          className="space-y-12"
-          onSubmit={(e) => e.preventDefault()}
-        >
-          <div className="space-y-4">
-            <label htmlFor="email" className="block mb-2 text-sm">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              id="email"
-              placeholder="example@email.com"
-              className="w-full px-3 py-2 border rounded-md"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="text-sm">
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              id="password"
-              placeholder="******"
-              className="w-full px-3 py-2 border rounded-md"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          {error && <p className="text-red-500">{error}</p>}
-          <button
-            type="button"
-            className="w-full px-8 py-3 font-semibold rounded bg-violet-600 text-gray-50"
-            onClick={handleLogin}
-            disabled={loading}
+    <div className="bg-gray-900 shadow-lg rounded-lg p-8 w-full max-w-md mx-auto">
+      <h2 className="text-3xl text-center text-teal-400 font-semibold mb-6">
+        Login Blockchain
+      </h2>
+      <form
+        onSubmit={(e) => e.preventDefault()}
+        className="space-y-6"
+        noValidate
+      >
+        <div>
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-teal-300"
           >
-            {loading ? "Carregando..." : "Entrar"}
-          </button>
-        </form>
-      </div>
+            Email
+          </label>
+          <input
+            type="email"
+            id="email"
+            placeholder="example@email.com"
+            className="mt-1 block w-full px-4 py-2 bg-gray-800 text-white border border-gray-700 rounded-lg shadow-sm focus:ring-teal-400 focus:border-teal-400"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-teal-300"
+          >
+            Senha
+          </label>
+          <input
+            type="password"
+            id="password"
+            placeholder="******"
+            className="mt-1 block w-full px-4 py-2 bg-gray-800 text-white border border-gray-700 rounded-lg shadow-sm focus:ring-teal-400 focus:border-teal-400"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        {error && <p className="text-red-500">{error}</p>}
+        <button
+          type="button"
+          className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-white font-semibold rounded-lg shadow-lg transition duration-300"
+          onClick={handleLogin}
+          disabled={loading}
+        >
+          {loading ? "Carregando..." : "Entrar"}
+        </button>
+      </form>
     </div>
   );
 };
